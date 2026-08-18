@@ -39,21 +39,10 @@ export default function PostDetail(){
   async function selectSolver(app:App){
     if(!post||!user||user.id!==post.author_id)return;
     setBusy(app.id);setMsg("");
-    const {error:updateError}=await supabase.from("post_applications").update({status:"ACCEPTED",responded_at:new Date().toISOString()}).eq("id",app.id).eq("status","PENDING");
-    if(updateError){setMsg(updateError.message);setBusy(null);return;}
-
-    const {data:existing}=await supabase.from("rooms").select("id").eq("post_id",post.id).eq("status","ACTIVE").maybeSingle();
-    let roomId=existing?.id as string|undefined;
-    if(!roomId){
-      const {data:r,error}=await supabase.from("rooms").insert({post_id:post.id,problem_owner_id:post.author_id,solver_id:app.applicant_id,title:post.title,category:post.category,status:"ACTIVE"}).select("id").single();
-      if(error||!r){setMsg(error?.message||"Could not create Solve Room.");setBusy(null);return;}
-      roomId=r.id;
-      const {error:memberError}=await supabase.from("room_members").insert([{room_id:roomId,user_id:post.author_id,role:"OWNER"},{room_id:roomId,user_id:app.applicant_id,role:"SOLVER"}]);
-      if(memberError&&!memberError.message.toLowerCase().includes("duplicate")){setMsg(memberError.message);setBusy(null);return;}
-    }
-    await supabase.from("posts").update({status:"IN_PROGRESS"}).eq("id",post.id);
-    await supabase.from("post_applications").update({status:"REJECTED",responded_at:new Date().toISOString()}).eq("post_id",post.id).eq("status","PENDING").neq("id",app.id);
-    router.push(`/room/${roomId}`);
+    const {data,error}=await supabase.rpc("accept_help_request",{p_application_id:app.id});
+    if(error){setMsg(error.message);setBusy(null);return;}
+    if(!data?.room_id){setMsg("Solve Room could not be opened.");setBusy(null);return;}
+    router.push(`/room/${data.room_id}`);
   }
 
   async function reject(app:App){

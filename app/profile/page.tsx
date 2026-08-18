@@ -1,30 +1,10 @@
- "use client";
-import { useEffect, useState } from "react";
-import { supabase } from "../../lib/supabase";
-
-export default function Profile(){
-  const [p,setP]=useState<any>(null); const [fields,setFields]=useState<any[]>([]); const [msg,setMsg]=useState("");
-  useEffect(()=>{(async()=>{
-    const {data:{user}}=await supabase.auth.getUser();
-    if(!user){location.href="/login";return}
-    const {data,error}=await supabase.from("profiles").select("*").eq("id",user.id).single();
-    if(error){setMsg(error.message);return}
-    setP(data);
-    const {data:uf}=await supabase.from("user_fields").select("field_name").eq("user_id",user.id);
-    setFields(uf||[]);
-  })()},[]);
-  async function save(){
-    const {error}=await supabase.from("profiles").update({display_name:p.display_name,bio:p.bio}).eq("id",p.id);
-    setMsg(error?error.message:"Profile saved.");
-  }
-  if(!p)return <main className="container"><p>{msg||"Loading…"}</p></main>
-  return <main className="container"><div className="form card">
-    <h1>Profile</h1>
-    {msg&&<div className="success">{msg}</div>}
-    <label>Name</label><input value={p.display_name||""} onChange={e=>setP({...p,display_name:e.target.value})}/>
-    <label>Bio</label><textarea value={p.bio||""} onChange={e=>setP({...p,bio:e.target.value})}/>
-    <label>Fields</label><div className="row">{fields.map((f,i)=><span className="badge" key={i}>{f.field_name}</span>)}</div>
-    <button className="btn" style={{marginTop:18}} onClick={save}>Save profile</button>
-    <button className="btn ghost" style={{marginTop:10}} onClick={async()=>{await supabase.auth.signOut();location.href="/"}}>Logout</button>
-  </div></main>
+"use client";
+import { useEffect,useState } from "react";import Link from "next/link";import { supabase } from "../../lib/supabase";
+export default function Profile(){const [user,setUser]=useState<any>(null);const [p,setP]=useState<any>(null);const [ratings,setRatings]=useState<any[]>([]);const [msg,setMsg]=useState("");
+ useEffect(()=>{(async()=>{const {data:{user}}=await supabase.auth.getUser();if(!user){location.href="/login?next=/profile";return;}setUser(user);const {data:profile,error}=await supabase.from("profiles").select("*").eq("id",user.id).single();if(error){setMsg(error.message);return;}setP(profile);const {data:r}=await supabase.from("ratings").select("id,rating,field,created_at,rater_id,profiles:rater_id(display_name)").eq("rated_id",user.id).order("created_at",{ascending:false});setRatings((r||[]) as unknown as any[])})()},[]);
+ async function save(){if(!p)return;const {error}=await supabase.from("profiles").update({display_name:p.display_name,bio:p.bio}).eq("id",p.id);setMsg(error?error.message:"Profile saved successfully.")}
+ async function logout(){await supabase.auth.signOut();location.href="/home"}
+ if(!p)return <main className="container"><div className="card loading-card">{msg||"Loading profile…"}</div></main>;
+ const avg=ratings.length?ratings.reduce((s,r)=>s+r.rating,0)/ratings.length:0;
+ return <main className="container profile-page"><section className="profile-hero card"><div className="profile-avatar">{(p.display_name||"A").charAt(0).toUpperCase()}</div><div><span className="eyebrow">MY PROFILE</span><h1>{p.display_name}</h1><p>{p.bio||"No bio yet. Tell people what you know and what you like helping with."}</p></div><button className="btn secondary" onClick={logout}>Logout</button></section><div className="grid2"><section className="card panel-card"><span className="eyebrow">EDIT</span><h2>Your public profile</h2>{msg&&<div className="success">{msg}</div>}<label>Name</label><input value={p.display_name||""} onChange={e=>setP({...p,display_name:e.target.value})}/><label>Bio</label><textarea value={p.bio||""} onChange={e=>setP({...p,bio:e.target.value})}/><button className="btn" onClick={save}>Save Profile</button></section><section className="card panel-card"><span className="eyebrow">TRUST</span><h2>Ratings received</h2><div className="rating-big"><b>{avg?avg.toFixed(1):"—"}</b><span>average from {ratings.length} rating{ratings.length===1?"":"s"}</span></div>{ratings.length===0?<div className="empty-inline">No ratings yet. Complete a Solve Room and useful contribution will appear here.</div>:ratings.map(r=><div className="rating-row" key={r.id}><div><strong>{r.profiles?.[0]?.display_name||"ASKORAA User"}</strong><span>{r.field} • {new Date(r.created_at).toLocaleDateString()}</span></div><b>{"★".repeat(r.rating)}{"☆".repeat(5-r.rating)}</b></div>)}</section></div><section className="safety-card"><div><span className="eyebrow">YOUR PRIVACY</span><h2>Only share what you&apos;re comfortable making public.</h2><p>ASKORAA profiles are designed for useful contribution, not exposing private account information.</p></div><Link href="/settings" className="btn secondary">Settings</Link></section></main>;
 }

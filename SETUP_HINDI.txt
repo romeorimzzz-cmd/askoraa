@@ -1,100 +1,25 @@
-ASKORAA V1 — SIMPLE SETUP
+ASKORAA FINAL V1 — SETUP
 
-Bhai, is ZIP ko chalane ke liye ye steps follow karo.
+1. ZIP ko project folder me extract karo aur existing app source ko is pack se replace karo. `.git`, `.env.local`, node_modules aur .next ko delete mat karo.
 
-1) SUPABASE BANAO
-- supabase.com kholo
-- New Project
-- Project banne do
+2. Netlify Environment Variables me EXACTLY ye 2 keys rakho:
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 
-2) DATABASE LAGAO
-- Supabase ke SQL Editor me jao
-- ZIP ke andar supabase/schema.sql kholo
-- Pura code copy karo
-- SQL Editor me paste karo
-- Run dabao
-- Error aaye to screenshot bhejo; guess se change mat karna.
+NEXT_PUBLIC_SUPABASE_ANON_KEY ki zarurat nahi hai.
 
-3) KEYS LO
-Supabase ke API/settings section se:
-- Project URL
-- Publishable/anon client key
+3. Supabase SQL Editor:
+- Fresh project: pehle supabase/schema.sql run karo.
+- Tumhara existing project: supabase/migrations/20260818_askoraa_final_v1.sql run karo.
 
-4) LOCAL COMPUTER PAR
-Node.js LTS install karo.
+4. Migration ke baad Git push karo. Netlify npm run build chalayega.
 
-Project folder me terminal kholo:
+5. Public pages bina login: Home, Solve Problems, Post detail, Solved Archive, Safety, Terms, Support.
+Login required: post, I CAN HELP, accept, Solve Room, chat, rating, profile/my.
 
-npm install
+6. Main flow:
+Post Problem -> I CAN HELP -> Notification -> Accept & Solve -> private room -> chat -> final solution -> YES/NO -> rating/archive.
 
-Phir:
+7. NO ke baad owner Solve Room ko reopen kar sakta hai. YES ke baad room solved archive me preserve hota hai.
 
-npm run dev
-
-Browser:
-http://localhost:3000
-
-5) TEST
-Do accounts banao:
-A = problem owner
-B = solver
-
-A:
-- Login
-- ASK post
-
-B:
-- Login
-- Home
-- I CAN HELP
-
-A:
-- Post kholo
-- B ko solver select karo
-- Room kholo
-
-A + B:
-- Chat karo
-- Page refresh karke dekho history hai
-- YES/NO test karo
-- Rating test karo
-
-6) VERCEL PAR LIVE
-- Project GitHub par upload karo
-- vercel.com kholo
-- New Project
-- GitHub repo import karo
-- Environment Variables me:
-  NEXT_PUBLIC_SUPABASE_URL
-  NEXT_PUBLIC_SUPABASE_ANON_KEY
-- Deploy
-
-7) IMPORTANT
-Supabase secret/service-role key ko kabhi frontend me mat dalna.
-
-8) V1 ME ABHI NAHI HAI
-Badges
-MCoin
-Streak
-Archive
-AI similarity
-Reviewers
-Visitor count
-Advanced admin
-Paid solver
-
-Ye sab V2 hai.
-
-9) REAL TEST
-50–100 real users ko do.
-Dekho:
-ASK karte hain?
-HELP karte hain?
-I CAN HELP dabate hain?
-Solve Room use karte hain?
-YES hota hai?
-Wapas aate hain?
-
-Agar haan, tab V2.
-
-Agar koi step par error aaye to mujhe exact error/screenshot bhejna. Main usi file/step ko fix karunga; pura project dobara banane ki zarurat nahi honi chahiye.
+8. Safety: OTP/password/UPI PIN/card details/remote access code kabhi share mat karo.

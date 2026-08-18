@@ -1,212 +1,42 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { supabase } from "../lib/supabase";
 import NotificationsBell from "./NotificationsBell";
+import PresenceCounter from "./PresenceCounter";
 
 export default function AuthNav() {
   const [user, setUser] = useState<any>(null);
-  const [onlineCount, setOnlineCount] = useState(0);
-  const [loading, setLoading] = useState(true);
-
-  async function refreshOnlineCount() {
-    const cutoff = new Date(
-      Date.now() - 90 * 1000
-    ).toISOString();
-
-    const { count } = await supabase
-      .from("profiles")
-      .select("id", {
-        count: "exact",
-        head: true
-      })
-      .eq("is_online", true)
-      .gte("last_seen", cutoff);
-
-    setOnlineCount(count || 0);
-  }
-
-  async function setOnlineStatus(currentUser: any) {
-    if (!currentUser) return;
-
-    await supabase
-      .from("profiles")
-      .update({
-        is_online: true,
-        last_seen: new Date().toISOString()
-      })
-      .eq("id", currentUser.id);
-  }
-
-  async function setOfflineStatus(currentUser: any) {
-    if (!currentUser) return;
-
-    await supabase
-      .from("profiles")
-      .update({
-        is_online: false,
-        last_seen: new Date().toISOString()
-      })
-      .eq("id", currentUser.id);
-  }
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    let heartbeat:
-      | ReturnType<typeof setInterval>
-      | null = null;
-
-    async function init() {
-      const {
-        data: { user: currentUser }
-      } = await supabase.auth.getUser();
-
-      setUser(currentUser);
-      setLoading(false);
-
-      if (currentUser) {
-        await setOnlineStatus(currentUser);
-      }
-
-      await refreshOnlineCount();
-
-      if (currentUser) {
-        heartbeat = setInterval(async () => {
-          await setOnlineStatus(currentUser);
-          await refreshOnlineCount();
-        }, 30000);
-      }
-    }
-
-    init();
-
-    const {
-      data: { subscription }
-    } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        const nextUser =
-          session?.user || null;
-
-        setUser(nextUser);
-
-        if (nextUser) {
-          await setOnlineStatus(nextUser);
-        }
-
-        await refreshOnlineCount();
-      }
-    );
-
-    const handleVisibility = async () => {
-      if (
-        document.visibilityState ===
-        "visible"
-      ) {
-        const {
-          data: { user: currentUser }
-        } = await supabase.auth.getUser();
-
-        if (currentUser) {
-          await setOnlineStatus(
-            currentUser
-          );
-        }
-
-        await refreshOnlineCount();
-      }
-    };
-
-    document.addEventListener(
-      "visibilitychange",
-      handleVisibility
-    );
-
-    return () => {
-      subscription.unsubscribe();
-
-      if (heartbeat) {
-        clearInterval(heartbeat);
-      }
-
-      document.removeEventListener(
-        "visibilitychange",
-        handleVisibility
-      );
-    };
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user ?? null));
+    return () => listener.subscription.unsubscribe();
   }, []);
 
-  async function logout() {
-    if (user) {
-      await setOfflineStatus(user);
-    }
-
-    await supabase.auth.signOut();
-
-    window.location.href = "/";
-  }
-
-  if (loading) {
-    return (
-      <div className="navlinks">
-        <Link href="/home">
-          Home
-        </Link>
-      </div>
-    );
-  }
-
   return (
-    <div className="navlinks">
-
-      <Link href="/home">
-        Home
-      </Link>
-
-      {user ? (
-        <>
-          <Link href="/create">
-            Ask
-          </Link>
-
-          <Link href="/my">
-            My
-          </Link>
-
-          <Link href="/profile">
-            Profile
-          </Link>
-
-          <NotificationsBell />
-
-          <span className="online-counter">
-            <span className="online-dot">
-              ●
-            </span>{" "}
-            {onlineCount} online
-          </span>
-
-          <button
-            className="btn secondary"
-            onClick={logout}
-          >
-            Logout
-          </button>
-        </>
-      ) : (
-        <>
-          <Link href="/login">
-            Login
-          </Link>
-
-          <Link
-            href="/register"
-            className="btn secondary"
-          >
-            Register
-          </Link>
-        </>
-      )}
-
-    </div>
+    <>
+      <div className="desktop-nav">
+        <Link href="/home">Problems</Link>
+        <Link href="/solve">Solve</Link>
+        {user && <Link href="/my">My ASKORAA</Link>}
+        <PresenceCounter />
+        {user ? <NotificationsBell /> : null}
+        {user ? <Link href="/profile" className="nav-profile">Profile</Link> : <Link href="/login" className="nav-login">Login</Link>}
+        {!user && <Link href="/register" className="btn btn-sm">Join free</Link>}
+      </div>
+      <button className="mobile-menu-btn" onClick={() => setOpen(v => !v)} aria-label="Open menu">☰</button>
+      {open && <div className="mobile-menu">
+        <Link href="/home" onClick={() => setOpen(false)}>Problems</Link>
+        <Link href="/solve" onClick={() => setOpen(false)}>Solve Problems</Link><Link href="/archive" onClick={() => setOpen(false)}>Solved Archive</Link>
+        <Link href="/create" onClick={() => setOpen(false)}>Post a Problem</Link>
+        {user && <Link href="/my" onClick={() => setOpen(false)}>My ASKORAA</Link>}
+        <Link href="/safety" onClick={() => setOpen(false)}>Safety & Rules</Link>
+        <Link href="/support" onClick={() => setOpen(false)}>Support</Link>
+        {user ? <Link href="/profile" onClick={() => setOpen(false)}>Profile</Link> : <Link href="/login" onClick={() => setOpen(false)}>Login</Link>}
+      </div>}
+    </>
   );
 }
