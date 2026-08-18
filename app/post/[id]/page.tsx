@@ -15,8 +15,8 @@ type Post = {
   status: string;
   created_at: string;
   profiles?: {
-    display_name: string;
-  } | null;
+  display_name: string;
+}[] | null;
 };
 
 type RequestRow = {
@@ -532,8 +532,8 @@ export default function PostPage() {
   }
 
   const ownerName =
-    post.profiles?.display_name ||
-    "ASKORAA User";
+  post.profiles?.[0]?.display_name ||
+  "ASKORAA User";
 
   const isOwner =
     user?.id === post.author_id;
