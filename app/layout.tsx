@@ -3,8 +3,9 @@ import Link from "next/link";
 import AuthNav from "../components/AuthNav";
 
 export const metadata = {
-  title: "ASKORAA — Ask. Help. Share Knowledge.",
-  description: "A simple human problem-solving network."
+  title: "ASKORAA — Ask. Help. Solve.",
+  description:
+    "ASKORAA connects people who need help with people who can help."
 };
 
 export default function RootLayout({
@@ -14,22 +15,55 @@ export default function RootLayout({
 }) {
   return (
     <>
-      <nav className="nav">
-        <Link href="/" className="logo">
-          ASKORAA
-        </Link>
+      <header className="site-header">
+        <div className="header-inner">
+          <Link href="/" className="brand">
+            <span className="brand-mark">A</span>
 
-        <AuthNav />
-      </nav>
+            <span className="brand-text">
+              <strong>ASKORAA</strong>
+              <small>Ask • Help • Solve</small>
+            </span>
+          </Link>
 
-      {children}
+          <AuthNav />
+        </div>
+      </header>
 
-      <footer className="footer">
-        <div>ASKORAA • Ask. Help. Share Knowledge.</div>
-        <div className="small" style={{ marginTop: 8 }}>
-          <Link href="/about">About</Link>
-          {" • "}
-          <Link href="/support">Support</Link>
+      <main className="site-main">
+        {children}
+      </main>
+
+      <footer className="site-footer">
+        <div className="footer-inner">
+          <div className="footer-brand">
+            <div className="footer-logo">
+              <span className="brand-mark small-mark">A</span>
+              <strong>ASKORAA</strong>
+            </div>
+
+            <p>
+              Real people. Real problems. Useful help.
+            </p>
+          </div>
+
+          <div className="footer-links">
+            <Link href="/about">About</Link>
+            <Link href="/support">Support</Link>
+            <Link href="/report">Report a Problem</Link>
+            <Link href="/privacy">Privacy</Link>
+            <Link href="/terms">Terms</Link>
+          </div>
+        </div>
+
+        <div className="footer-bottom">
+          <span>
+            © {new Date().getFullYear()} ASKORAA
+          </span>
+
+          <span>
+            Ask. Help. Solve.
+          </span>
         </div>
       </footer>
     </>

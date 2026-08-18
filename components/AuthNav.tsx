@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import NotificationsBell from "./NotificationsBell";
 
 export default function AuthNav() {
   const [user, setUser] = useState<any>(null);
@@ -51,25 +52,27 @@ export default function AuthNav() {
   }
 
   useEffect(() => {
-    let heartbeat: ReturnType<typeof setInterval> | null = null;
+    let heartbeat:
+      | ReturnType<typeof setInterval>
+      | null = null;
 
     async function init() {
       const {
-        data: { user }
+        data: { user: currentUser }
       } = await supabase.auth.getUser();
 
-      setUser(user);
+      setUser(currentUser);
       setLoading(false);
 
-      if (user) {
-        await setOnlineStatus(user);
+      if (currentUser) {
+        await setOnlineStatus(currentUser);
       }
 
       await refreshOnlineCount();
 
-      if (user) {
+      if (currentUser) {
         heartbeat = setInterval(async () => {
-          await setOnlineStatus(user);
+          await setOnlineStatus(currentUser);
           await refreshOnlineCount();
         }, 30000);
       }
@@ -81,7 +84,8 @@ export default function AuthNav() {
       data: { subscription }
     } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        const nextUser = session?.user || null;
+        const nextUser =
+          session?.user || null;
 
         setUser(nextUser);
 
@@ -94,13 +98,18 @@ export default function AuthNav() {
     );
 
     const handleVisibility = async () => {
-      if (document.visibilityState === "visible") {
+      if (
+        document.visibilityState ===
+        "visible"
+      ) {
         const {
-          data: { user }
+          data: { user: currentUser }
         } = await supabase.auth.getUser();
 
-        if (user) {
-          await setOnlineStatus(user);
+        if (currentUser) {
+          await setOnlineStatus(
+            currentUser
+          );
         }
 
         await refreshOnlineCount();
@@ -139,25 +148,40 @@ export default function AuthNav() {
   if (loading) {
     return (
       <div className="navlinks">
-        <Link href="/home">Home</Link>
+        <Link href="/home">
+          Home
+        </Link>
       </div>
     );
   }
 
   return (
     <div className="navlinks">
-      <Link href="/home">Home</Link>
+
+      <Link href="/home">
+        Home
+      </Link>
 
       {user ? (
         <>
-          <Link href="/create">Ask</Link>
+          <Link href="/create">
+            Ask
+          </Link>
 
-          <Link href="/my">My</Link>
+          <Link href="/my">
+            My
+          </Link>
 
-          <Link href="/profile">Profile</Link>
+          <Link href="/profile">
+            Profile
+          </Link>
+
+          <NotificationsBell />
 
           <span className="online-counter">
-            <span className="online-dot">●</span>{" "}
+            <span className="online-dot">
+              ●
+            </span>{" "}
             {onlineCount} online
           </span>
 
@@ -170,7 +194,9 @@ export default function AuthNav() {
         </>
       ) : (
         <>
-          <Link href="/login">Login</Link>
+          <Link href="/login">
+            Login
+          </Link>
 
           <Link
             href="/register"
@@ -180,6 +206,7 @@ export default function AuthNav() {
           </Link>
         </>
       )}
+
     </div>
   );
 }
