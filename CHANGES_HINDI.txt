@@ -1,0 +1,43 @@
+ASKORAA ONE-TIME CORE FIX
+==========================
+
+Is patch me ye fixes hain:
+
+1. Post Your Problem ab sirf ASK problem form hai. ASK/HELP tabs hata diye.
+2. Home par sirf doosre users ki OPEN ASK problems par I CAN HELP dikhega.
+3. Apni problem par YOUR PROBLEM dikhega, I CAN HELP nahi.
+4. I CAN HELP -> post_applications -> automatic notification.
+5. Notification me Accept & Solve / Not now.
+6. Accept & Solve -> application ACCEPTED -> private Solve Room -> owner + solver members -> room open.
+7. Notification accept ke liye purane connection_requests flow ko hata kar existing database ke post_applications flow ko unified kiya gaya hai.
+8. Solve Room chat:
+   - PostgreSQL history
+   - Supabase realtime
+   - Enter send / Shift+Enter new line
+   - owner + solver only
+   - final solution submit/update
+   - owner YES/NO
+9. YES/NO ke baad trusted DB trigger room + post state update karta hai aur archive record banata hai.
+10. Solved Archive date-wise hai aur problem, category, owner, solver, date, outcome, summary aur final solution dikhata hai.
+11. Rating flow archive par return karta hai.
+12. Modern responsive UI/CSS.
+13. Home/My/Create/Footer par safety guidance.
+14. Registration me Terms + Community Safety acceptance checkbox.
+
+IMPORTANT DATABASE STEP
+------------------------
+Existing Supabase project ke liye:
+Supabase Dashboard -> SQL Editor -> New query
+Is patch ke:
+  supabase/migrations/20260818_core_fix.sql
+ko poora paste karke Run karo.
+
+Fresh database ho to:
+  supabase/schema.sql
+poora run karo.
+
+Uske baad project files replace karo aur Git push karo.
+
+NOTE
+----
+Maine local environment me source files prepare kiye hain. Is environment me npm dependency installation network timeout hua, isliye main Netlify production build ko "100% verified" nahi bol raha. Code Next.js/TypeScript structure ke hisaab se prepare kiya gaya hai.

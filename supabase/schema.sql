@@ -1,5 +1,6 @@
--- ASKORAA V1 schema
--- Run this entire file in Supabase SQL Editor before using the app.
+-- ASKORAA V1 - unified core schema
+-- Run this in Supabase SQL Editor for a fresh database.
+-- For an existing database, use the migration in supabase/migrations/.
 
 create extension if not exists pgcrypto;
 
@@ -38,6 +39,8 @@ create table if not exists public.post_applications (
   id uuid primary key default gen_random_uuid(),
   post_id uuid not null references public.posts(id) on delete cascade,
   applicant_id uuid not null references public.profiles(id) on delete cascade,
+  status text not null default 'PENDING' check (status in ('PENDING','ACCEPTED','REJECTED','CANCELLED')),
+  responded_at timestamptz,
   created_at timestamptz not null default now(),
   unique(post_id, applicant_id)
 );
@@ -77,13 +80,45 @@ create table if not exists public.messages (
 create index if not exists messages_room_created_idx
 on public.messages(room_id,created_at);
 
+create table if not exists public.room_solutions (
+  id uuid primary key default gen_random_uuid(),
+  room_id uuid not null unique references public.rooms(id) on delete cascade,
+  solver_id uuid not null references public.profiles(id) on delete cascade,
+  body text not null check (char_length(body) between 3 and 10000),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.problem_outcomes (
   id uuid primary key default gen_random_uuid(),
   room_id uuid not null unique references public.rooms(id) on delete cascade,
   decided_by uuid not null references public.profiles(id) on delete cascade,
+  solver_id uuid not null references public.profiles(id) on delete cascade,
   outcome text not null check (outcome in ('YES','NO')),
+  solution text not null default '',
+  summary text not null default '',
+  created_at timestamptz not null default now(),
+  decided_at timestamptz not null default now()
+);
+
+create table if not exists public.archive_records (
+  id uuid primary key default gen_random_uuid(),
+  room_id uuid not null unique references public.rooms(id) on delete cascade,
+  post_id uuid not null references public.posts(id) on delete cascade,
+  title text not null,
+  body text not null,
+  category text not null,
+  owner_id uuid not null references public.profiles(id) on delete cascade,
+  solver_id uuid not null references public.profiles(id) on delete cascade,
+  outcome text not null check (outcome in ('YES','NO')),
+  solution text not null default '',
+  summary text not null default '',
+  solved_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
+
+create index if not exists archive_solved_at_idx on public.archive_records(solved_at desc);
+create index if not exists archive_category_idx on public.archive_records(category);
 
 create table if not exists public.ratings (
   id uuid primary key default gen_random_uuid(),
@@ -96,11 +131,26 @@ create table if not exists public.ratings (
   unique(room_id,rater_id)
 );
 
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  actor_id uuid references public.profiles(id) on delete set null,
+  type text not null,
+  title text not null,
+  message text not null default '',
+  post_id uuid references public.posts(id) on delete cascade,
+  room_id uuid references public.rooms(id) on delete cascade,
+  connection_id uuid references public.post_applications(id) on delete cascade,
+  is_read boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists notifications_user_created_idx on public.notifications(user_id,created_at desc);
+
 insert into public.fields(name) values
 ('Business'),('Technology'),('Education'),('Career'),('Marketing'),('Design'),('Gaming'),('Electronics'),('Other')
 on conflict(name) do nothing;
 
--- New-user profile creation.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -119,6 +169,132 @@ create trigger on_auth_user_created
 after insert on auth.users
 for each row execute procedure public.handle_new_user();
 
+-- Application -> notification. This keeps notification creation trusted and automatic.
+create or replace function public.notify_help_application()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  post_author uuid;
+  post_title text;
+begin
+  select author_id,title into post_author,post_title from public.posts where id = new.post_id;
+  if post_author is not null and post_author <> new.applicant_id then
+    insert into public.notifications(user_id,actor_id,type,title,message,post_id,connection_id)
+    values(
+      post_author,
+      new.applicant_id,
+      'HELP_REQUEST',
+      'Someone wants to help you',
+      'Someone offered to help solve your problem: ' || post_title,
+      new.post_id,
+      new.id
+    );
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists after_help_application on public.post_applications;
+create trigger after_help_application
+after insert on public.post_applications
+for each row execute function public.notify_help_application();
+
+-- Room -> notification to solver.
+create or replace function public.notify_room_created()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  application_id uuid;
+begin
+  select id into application_id
+  from public.post_applications
+  where post_id = new.post_id and applicant_id = new.solver_id
+  order by created_at desc
+  limit 1;
+
+  insert into public.notifications(user_id,actor_id,type,title,message,post_id,room_id,connection_id)
+  values(
+    new.solver_id,
+    new.problem_owner_id,
+    'CONNECTION_ACCEPTED',
+    'Solve Room is ready',
+    'The problem owner accepted your help. Your private Solve Room is ready.',
+    new.post_id,
+    new.id,
+    application_id
+  );
+
+  return new;
+end;
+$$;
+
+drop trigger if exists after_room_created on public.rooms;
+create trigger after_room_created
+after insert on public.rooms
+for each row execute function public.notify_room_created();
+
+-- Outcome -> room/post/archive in one trusted database event.
+create or replace function public.process_problem_outcome()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  r public.rooms%rowtype;
+  p public.posts%rowtype;
+  solution_body text;
+begin
+  select * into r from public.rooms where id = new.room_id;
+  select * into p from public.posts where id = r.post_id;
+  select body into solution_body from public.room_solutions where room_id = new.room_id;
+
+  update public.rooms
+  set status = case when new.outcome = 'YES' then 'SOLVED' else 'UNRESOLVED' end,
+      closed_at = now()
+  where id = new.room_id;
+
+  update public.posts
+  set status = case when new.outcome = 'YES' then 'SOLVED' else 'UNRESOLVED' end
+  where id = r.post_id;
+
+  insert into public.archive_records(
+    room_id,post_id,title,body,category,owner_id,solver_id,outcome,solution,summary,solved_at
+  ) values(
+    r.id,p.id,p.title,p.body,p.category,r.problem_owner_id,r.solver_id,new.outcome,
+    coalesce(nullif(new.solution,''),coalesce(solution_body,'')),
+    coalesce(new.summary,''),now()
+  )
+  on conflict(room_id) do update set
+    outcome=excluded.outcome,
+    solution=excluded.solution,
+    summary=excluded.summary,
+    solved_at=excluded.solved_at;
+
+  insert into public.notifications(user_id,actor_id,type,title,message,post_id,room_id)
+  values(
+    r.solver_id,
+    r.problem_owner_id,
+    case when new.outcome='YES' then 'PROBLEM_SOLVED' else 'PROBLEM_UNRESOLVED' end,
+    case when new.outcome='YES' then 'Problem solved' else 'Problem marked unresolved' end,
+    case when new.outcome='YES' then 'The owner accepted your solution.' else 'The owner marked the problem unresolved.' end,
+    r.post_id,
+    r.id
+  );
+
+  return new;
+end;
+$$;
+
+drop trigger if exists after_problem_outcome on public.problem_outcomes;
+create trigger after_problem_outcome
+after insert on public.problem_outcomes
+for each row execute function public.process_problem_outcome();
+
+-- RLS
 alter table public.profiles enable row level security;
 alter table public.fields enable row level security;
 alter table public.user_fields enable row level security;
@@ -127,101 +303,96 @@ alter table public.post_applications enable row level security;
 alter table public.rooms enable row level security;
 alter table public.room_members enable row level security;
 alter table public.messages enable row level security;
+alter table public.room_solutions enable row level security;
 alter table public.problem_outcomes enable row level security;
+alter table public.archive_records enable row level security;
 alter table public.ratings enable row level security;
+alter table public.notifications enable row level security;
 
--- Profiles: public read, owner update.
-create policy "profiles_select_public" on public.profiles
-for select using (true);
-create policy "profiles_update_self" on public.profiles
-for update using (auth.uid()=id) with check (auth.uid()=id);
+-- Avoid duplicate policy errors on re-run.
+do $$
+declare r record;
+begin
+  for r in select policyname,tablename from pg_policies where schemaname='public' and tablename in (
+    'profiles','fields','user_fields','posts','post_applications','rooms','room_members','messages',
+    'room_solutions','problem_outcomes','archive_records','ratings','notifications'
+  ) loop
+    execute format('drop policy if exists %I on public.%I',r.policyname,r.tablename);
+  end loop;
+end $$;
 
--- Fields public read.
-create policy "fields_select_public" on public.fields
-for select using (true);
+create policy profiles_select_public on public.profiles for select using (true);
+create policy profiles_update_self on public.profiles for update using (auth.uid()=id) with check (auth.uid()=id);
+create policy fields_select_public on public.fields for select using (true);
+create policy user_fields_select_public on public.user_fields for select using (true);
+create policy user_fields_insert_self on public.user_fields for insert with check (auth.uid()=user_id);
+create policy user_fields_delete_self on public.user_fields for delete using (auth.uid()=user_id);
 
--- User fields: owner manage, public read.
-create policy "user_fields_select_public" on public.user_fields
-for select using (true);
-create policy "user_fields_insert_self" on public.user_fields
-for insert with check (auth.uid()=user_id);
-create policy "user_fields_delete_self" on public.user_fields
-for delete using (auth.uid()=user_id);
+create policy posts_select_public on public.posts for select using (true);
+create policy posts_insert_auth on public.posts for insert with check (auth.uid()=author_id);
+create policy posts_update_owner on public.posts for update using (auth.uid()=author_id) with check (auth.uid()=author_id);
+create policy posts_delete_owner on public.posts for delete using (auth.uid()=author_id);
 
--- Posts: public read, authenticated insert, owner update/delete.
-create policy "posts_select_public" on public.posts
-for select using (true);
-create policy "posts_insert_auth" on public.posts
-for insert with check (auth.uid()=author_id);
-create policy "posts_update_owner" on public.posts
-for update using (auth.uid()=author_id) with check (auth.uid()=author_id);
-create policy "posts_delete_owner" on public.posts
-for delete using (auth.uid()=author_id);
-
--- Applications: applicant can create/read own; post owner can read.
-create policy "applications_insert_self" on public.post_applications
-for insert with check (auth.uid()=applicant_id);
-create policy "applications_select_participants" on public.post_applications
+create policy applications_insert_self on public.post_applications
+for insert with check (auth.uid()=applicant_id and applicant_id <> (select author_id from public.posts where id=post_id));
+create policy applications_select_participants on public.post_applications
 for select using (
-  auth.uid()=applicant_id or
-  exists(select 1 from public.posts p where p.id=post_id and p.author_id=auth.uid())
+  auth.uid()=applicant_id or exists(select 1 from public.posts p where p.id=post_id and p.author_id=auth.uid())
 );
+create policy applications_update_owner on public.post_applications
+for update using (exists(select 1 from public.posts p where p.id=post_id and p.author_id=auth.uid()))
+with check (exists(select 1 from public.posts p where p.id=post_id and p.author_id=auth.uid()));
 
--- Rooms: only members can read; owner can create; members can update their room state only via client.
-create policy "rooms_select_members" on public.rooms
-for select using (
-  auth.uid()=problem_owner_id or auth.uid()=solver_id
-);
-create policy "rooms_insert_owner" on public.rooms
-for insert with check (auth.uid()=problem_owner_id);
-create policy "rooms_update_owner" on public.rooms
-for update using (auth.uid()=problem_owner_id) with check (auth.uid()=problem_owner_id);
+create policy rooms_select_members on public.rooms for select using (auth.uid()=problem_owner_id or auth.uid()=solver_id);
+create policy rooms_insert_owner on public.rooms for insert with check (auth.uid()=problem_owner_id and problem_owner_id <> solver_id);
+create policy rooms_update_owner on public.rooms for update using (auth.uid()=problem_owner_id) with check (auth.uid()=problem_owner_id);
 
--- Room membership: member can see own room membership; owner can insert members.
-create policy "room_members_select_self" on public.room_members
-for select using (auth.uid()=user_id);
-create policy "room_members_select_owner" on public.room_members
-for select using (exists(select 1 from public.rooms r where r.id=room_id and r.problem_owner_id=auth.uid()));
-create policy "room_members_insert_owner" on public.room_members
+create policy room_members_select_member on public.room_members
+for select using (auth.uid()=user_id or exists(select 1 from public.rooms r where r.id=room_id and r.problem_owner_id=auth.uid()));
+create policy room_members_insert_owner on public.room_members
 for insert with check (exists(select 1 from public.rooms r where r.id=room_id and r.problem_owner_id=auth.uid()));
 
--- Messages: only room members can read/insert.
-create policy "messages_select_member" on public.messages
+create policy messages_select_member on public.messages
 for select using (exists(select 1 from public.room_members rm where rm.room_id=room_id and rm.user_id=auth.uid()));
-create policy "messages_insert_member" on public.messages
+create policy messages_insert_member on public.messages
 for insert with check (
-  auth.uid()=sender_id and
-  exists(select 1 from public.room_members rm where rm.room_id=room_id and rm.user_id=auth.uid())
+  auth.uid()=sender_id and exists(select 1 from public.room_members rm where rm.room_id=room_id and rm.user_id=auth.uid())
 );
 
--- Outcomes: only room owner can insert/read; members can read.
-create policy "outcomes_select_member" on public.problem_outcomes
-for select using (
-  exists(select 1 from public.room_members rm where rm.room_id=room_id and rm.user_id=auth.uid())
-);
-create policy "outcomes_insert_owner" on public.problem_outcomes
+create policy solutions_select_member on public.room_solutions
+for select using (exists(select 1 from public.room_members rm where rm.room_id=room_id and rm.user_id=auth.uid()));
+create policy solutions_insert_solver on public.room_solutions
 for insert with check (
-  auth.uid()=decided_by and
-  exists(select 1 from public.rooms r where r.id=room_id and r.problem_owner_id=auth.uid())
+  auth.uid()=solver_id and exists(select 1 from public.rooms r where r.id=room_id and r.solver_id=auth.uid() and r.status='ACTIVE')
+);
+create policy solutions_update_solver on public.room_solutions
+for update using (auth.uid()=solver_id) with check (auth.uid()=solver_id);
+
+create policy outcomes_select_member on public.problem_outcomes
+for select using (exists(select 1 from public.room_members rm where rm.room_id=room_id and rm.user_id=auth.uid()));
+create policy outcomes_insert_owner on public.problem_outcomes
+for insert with check (
+  auth.uid()=decided_by and exists(select 1 from public.rooms r where r.id=room_id and r.problem_owner_id=auth.uid() and r.status='ACTIVE')
 );
 
--- Ratings: participants can read; owner can rate solver.
-create policy "ratings_select_participant" on public.ratings
-for select using (
-  exists(select 1 from public.room_members rm where rm.room_id=room_id and rm.user_id=auth.uid())
-);
-create policy "ratings_insert_owner" on public.ratings
+create policy archive_select_authenticated on public.archive_records
+for select using (auth.uid() is not null);
+
+create policy ratings_select_participant on public.ratings
+for select using (exists(select 1 from public.room_members rm where rm.room_id=room_id and rm.user_id=auth.uid()));
+create policy ratings_insert_owner on public.ratings
 for insert with check (
-  auth.uid()=rater_id and
-  exists(select 1 from public.rooms r where r.id=room_id and r.problem_owner_id=auth.uid() and r.solver_id=rated_id)
+  auth.uid()=rater_id and exists(select 1 from public.rooms r where r.id=room_id and r.problem_owner_id=auth.uid() and r.solver_id=rated_id)
 );
 
--- Realtime publication for chat.
+create policy notifications_select_self on public.notifications
+for select using (auth.uid()=user_id);
+create policy notifications_update_self on public.notifications
+for update using (auth.uid()=user_id) with check (auth.uid()=user_id);
+
+-- Realtime chat.
 do $$
 begin
-  begin
-    alter publication supabase_realtime add table public.messages;
-  exception when duplicate_object then
-    null;
-  end;
+  begin alter publication supabase_realtime add table public.messages; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table public.notifications; exception when duplicate_object then null; end;
 end $$;
