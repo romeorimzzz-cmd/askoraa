@@ -1,17 +1,55 @@
 import { createClient } from "@supabase/supabase-js";
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-if (!url || !key) {
-  throw new Error("ASKORAA Supabase configuration is missing. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.");
+if (!rawUrl) {
+  throw new Error(
+    "ASKORAA: NEXT_PUBLIC_SUPABASE_URL is missing."
+  );
 }
 
-export const supabase = createClient(url, key, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-    storageKey: "askoraa-auth",
-  },
-});
+if (!key) {
+  throw new Error(
+    "ASKORAA: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY is missing."
+  );
+}
+
+/*
+  Supabase project URL must be:
+
+  https://PROJECT.supabase.co
+
+  Never:
+
+  https://PROJECT.supabase.co/rest/v1
+
+  Supabase JS automatically adds:
+  /rest/v1
+  /auth/v1
+  /realtime/v1
+*/
+
+const supabaseUrl = rawUrl
+  .trim()
+  .replace(/\/+$/, "")
+  .replace(/\/rest\/v1$/i, "");
+
+export const supabase = createClient(
+  supabaseUrl,
+  key.trim(),
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storageKey: "askoraa-auth",
+    },
+
+    realtime: {
+      params: {
+        eventsPerSecond: 10,
+      },
+    },
+  }
+);
