@@ -13,9 +13,9 @@ type Post = {
   category: string;
   status: string;
   created_at: string;
-  profiles?: {
-    display_name: string;
-  } | null;
+ profiles?: {
+  display_name: string;
+}[] | null;
 };
 
 export default function HomePage() {
@@ -303,8 +303,8 @@ export default function HomePage() {
             {posts.map((post) => {
 
               const ownerName =
-                post.profiles?.display_name ||
-                "ASKORAA User";
+  post.profiles?.[0]?.display_name ||
+  "ASKORAA User";
 
               return (
                 <article
