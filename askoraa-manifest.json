@@ -1,0 +1,34 @@
+{
+  "product": "ASKORAA",
+  "version": "V1 MVP",
+  "scope": [
+    "profile_login",
+    "ask_help",
+    "i_can_help",
+    "one_solver",
+    "two_person_realtime_chat",
+    "yes_no",
+    "field_rating"
+  ],
+  "deferred_to_v2": [
+    "badges",
+    "mcoin",
+    "streaks",
+    "archive",
+    "ai_similarity",
+    "reviewers",
+    "visitor_count",
+    "advanced_presence",
+    "advanced_admin"
+  ],
+  "stack": [
+    "Next.js",
+    "TypeScript",
+    "Tailwind CSS",
+    "Supabase Auth",
+    "Supabase PostgreSQL",
+    "Supabase Realtime",
+    "Vercel",
+    "GitHub"
+  ]
+}

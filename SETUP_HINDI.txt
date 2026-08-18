@@ -1,0 +1,100 @@
+ASKORAA V1 — SIMPLE SETUP
+
+Bhai, is ZIP ko chalane ke liye ye steps follow karo.
+
+1) SUPABASE BANAO
+- supabase.com kholo
+- New Project
+- Project banne do
+
+2) DATABASE LAGAO
+- Supabase ke SQL Editor me jao
+- ZIP ke andar supabase/schema.sql kholo
+- Pura code copy karo
+- SQL Editor me paste karo
+- Run dabao
+- Error aaye to screenshot bhejo; guess se change mat karna.
+
+3) KEYS LO
+Supabase ke API/settings section se:
+- Project URL
+- Publishable/anon client key
+
+4) LOCAL COMPUTER PAR
+Node.js LTS install karo.
+
+Project folder me terminal kholo:
+
+npm install
+
+Phir:
+
+npm run dev
+
+Browser:
+http://localhost:3000
+
+5) TEST
+Do accounts banao:
+A = problem owner
+B = solver
+
+A:
+- Login
+- ASK post
+
+B:
+- Login
+- Home
+- I CAN HELP
+
+A:
+- Post kholo
+- B ko solver select karo
+- Room kholo
+
+A + B:
+- Chat karo
+- Page refresh karke dekho history hai
+- YES/NO test karo
+- Rating test karo
+
+6) VERCEL PAR LIVE
+- Project GitHub par upload karo
+- vercel.com kholo
+- New Project
+- GitHub repo import karo
+- Environment Variables me:
+  NEXT_PUBLIC_SUPABASE_URL
+  NEXT_PUBLIC_SUPABASE_ANON_KEY
+- Deploy
+
+7) IMPORTANT
+Supabase secret/service-role key ko kabhi frontend me mat dalna.
+
+8) V1 ME ABHI NAHI HAI
+Badges
+MCoin
+Streak
+Archive
+AI similarity
+Reviewers
+Visitor count
+Advanced admin
+Paid solver
+
+Ye sab V2 hai.
+
+9) REAL TEST
+50–100 real users ko do.
+Dekho:
+ASK karte hain?
+HELP karte hain?
+I CAN HELP dabate hain?
+Solve Room use karte hain?
+YES hota hai?
+Wapas aate hain?
+
+Agar haan, tab V2.
+
+Agar koi step par error aaye to mujhe exact error/screenshot bhejna. Main usi file/step ko fix karunga; pura project dobara banane ki zarurat nahi honi chahiye.
