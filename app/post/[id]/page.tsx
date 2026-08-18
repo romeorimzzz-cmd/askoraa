@@ -15,8 +15,8 @@ type Post = {
   status: string;
   created_at: string;
   profiles?: {
-  display_name: string;
-}[] | null;
+    display_name: string;
+  }[] | null;
 };
 
 type RequestRow = {
@@ -27,7 +27,7 @@ type RequestRow = {
   created_at: string;
   profiles?: {
     display_name: string;
-  } | null;
+  }[] | null;
 };
 
 type Room = {
@@ -48,8 +48,10 @@ export default function PostPage() {
   const [user, setUser] = useState<any>(null);
 
   const [requests, setRequests] = useState<RequestRow[]>([]);
-  const [myRequest, setMyRequest] = useState<RequestRow | null>(null);
-  const [activeRoom, setActiveRoom] = useState<Room | null>(null);
+  const [myRequest, setMyRequest] =
+    useState<RequestRow | null>(null);
+  const [activeRoom, setActiveRoom] =
+    useState<Room | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
@@ -59,9 +61,7 @@ export default function PostPage() {
     setLoading(true);
 
     const {
-      data: {
-        user: currentUser
-      }
+      data: { user: currentUser }
     } = await supabase.auth.getUser();
 
     setUser(currentUser);
@@ -123,7 +123,8 @@ export default function PostPage() {
       const mine =
         allRequests.find(
           (r) =>
-            r.requester_id === currentUser.id
+            r.requester_id ===
+            currentUser.id
         ) || null;
 
       setMyRequest(mine);
@@ -145,7 +146,9 @@ export default function PostPage() {
       .eq("status", "ACTIVE")
       .maybeSingle();
 
-    setActiveRoom(roomData as Room | null);
+    setActiveRoom(
+      roomData as Room | null
+    );
 
     setLoading(false);
   }
@@ -202,7 +205,9 @@ export default function PostPage() {
     }
 
     if (activeRoom) {
-      router.push(`/room/${activeRoom.id}`);
+      router.push(
+        `/room/${activeRoom.id}`
+      );
       return;
     }
 
@@ -355,7 +360,9 @@ export default function PostPage() {
       });
 
     if (ownerMemberError) {
-      setMessage(ownerMemberError.message);
+      setMessage(
+        ownerMemberError.message
+      );
       return null;
     }
 
@@ -371,7 +378,9 @@ export default function PostPage() {
       });
 
     if (solverMemberError) {
-      setMessage(solverMemberError.message);
+      setMessage(
+        solverMemberError.message
+      );
       return null;
     }
 
@@ -382,7 +391,10 @@ export default function PostPage() {
         status: "IN_PROGRESS"
       })
       .eq("id", post.id)
-      .eq("author_id", post.author_id);
+      .eq(
+        "author_id",
+        post.author_id
+      );
 
     // Notify solver.
     await supabase
@@ -407,7 +419,9 @@ export default function PostPage() {
   ) {
     if (!post || !user) return;
 
-    if (user.id !== post.author_id) return;
+    if (user.id !== post.author_id) {
+      return;
+    }
 
     setConnecting(true);
     setMessage("");
@@ -419,19 +433,29 @@ export default function PostPage() {
       .from("connection_requests")
       .update({
         status: "ACCEPTED",
-        responded_at: new Date().toISOString()
+        responded_at:
+          new Date().toISOString()
       })
       .eq("id", request.id)
-      .eq("owner_id", user.id)
-      .eq("status", "PENDING");
+      .eq(
+        "owner_id",
+        user.id
+      )
+      .eq(
+        "status",
+        "PENDING"
+      );
 
     if (updateError) {
-      setMessage(updateError.message);
+      setMessage(
+        updateError.message
+      );
       setConnecting(false);
       return;
     }
 
-    const room = await createSolveRoom(request);
+    const room =
+      await createSolveRoom(request);
 
     if (!room) {
       setConnecting(false);
@@ -441,21 +465,32 @@ export default function PostPage() {
 
     setActiveRoom(room);
 
-    // Rejected/other pending requests are closed
-    // because V1 allows only one solver.
+    // V1 allows only one solver.
     await supabase
       .from("connection_requests")
       .update({
         status: "REJECTED",
-        responded_at: new Date().toISOString()
+        responded_at:
+          new Date().toISOString()
       })
-      .eq("post_id", post.id)
-      .eq("status", "PENDING")
-      .neq("id", request.id);
+      .eq(
+        "post_id",
+        post.id
+      )
+      .eq(
+        "status",
+        "PENDING"
+      )
+      .neq(
+        "id",
+        request.id
+      );
 
     setConnecting(false);
 
-    router.push(`/room/${room.id}`);
+    router.push(
+      `/room/${room.id}`
+    );
   }
 
   async function rejectRequest(
@@ -463,7 +498,9 @@ export default function PostPage() {
   ) {
     if (!post || !user) return;
 
-    if (user.id !== post.author_id) return;
+    if (user.id !== post.author_id) {
+      return;
+    }
 
     const {
       error
@@ -471,11 +508,18 @@ export default function PostPage() {
       .from("connection_requests")
       .update({
         status: "REJECTED",
-        responded_at: new Date().toISOString()
+        responded_at:
+          new Date().toISOString()
       })
       .eq("id", request.id)
-      .eq("owner_id", user.id)
-      .eq("status", "PENDING");
+      .eq(
+        "owner_id",
+        user.id
+      )
+      .eq(
+        "status",
+        "PENDING"
+      );
 
     if (error) {
       setMessage(error.message);
@@ -485,13 +529,17 @@ export default function PostPage() {
     await supabase
       .from("notifications")
       .insert({
-        user_id: request.requester_id,
-        type: "CONNECTION_REJECTED",
-        title: "Help request declined",
+        user_id:
+          request.requester_id,
+        type:
+          "CONNECTION_REJECTED",
+        title:
+          "Help request declined",
         message:
           "The problem owner did not accept this connection.",
         post_id: post.id,
-        connection_id: request.id,
+        connection_id:
+          request.id,
         actor_id: user.id
       });
 
@@ -503,7 +551,9 @@ export default function PostPage() {
       <main className="container">
         <div
           className="card"
-          style={{ padding: 25 }}
+          style={{
+            padding: 25
+          }}
         >
           Loading problem...
         </div>
@@ -516,9 +566,13 @@ export default function PostPage() {
       <main className="container">
         <div
           className="card"
-          style={{ padding: 30 }}
+          style={{
+            padding: 30
+          }}
         >
-          <h2>Problem not found</h2>
+          <h2>
+            Problem not found
+          </h2>
 
           <Link
             href="/home"
@@ -532,8 +586,9 @@ export default function PostPage() {
   }
 
   const ownerName =
-  post.profiles?.[0]?.display_name ||
-  "ASKORAA User";
+    post.profiles?.[0]
+      ?.display_name ||
+    "ASKORAA User";
 
   const isOwner =
     user?.id === post.author_id;
@@ -546,7 +601,6 @@ export default function PostPage() {
           margin: "0 auto"
         }}
       >
-
         <Link
           href="/home"
           className="small"
@@ -561,17 +615,16 @@ export default function PostPage() {
             padding: 28
           }}
         >
-
           <div
             style={{
               display: "flex",
-              justifyContent: "space-between",
+              justifyContent:
+                "space-between",
               gap: 12,
               flexWrap: "wrap",
               marginBottom: 18
             }}
           >
-
             <div
               style={{
                 display: "flex",
@@ -579,10 +632,10 @@ export default function PostPage() {
                 flexWrap: "wrap"
               }}
             >
-
               <span
                 style={{
-                  padding: "6px 10px",
+                  padding:
+                    "6px 10px",
                   borderRadius: 999,
                   background:
                     post.kind === "ASK"
@@ -601,17 +654,19 @@ export default function PostPage() {
 
               <span
                 style={{
-                  padding: "6px 10px",
+                  padding:
+                    "6px 10px",
                   borderRadius: 999,
-                  background: "#f2f4f7",
-                  color: "#475467",
+                  background:
+                    "#f2f4f7",
+                  color:
+                    "#475467",
                   fontSize: 12,
                   fontWeight: 700
                 }}
               >
                 {post.category}
               </span>
-
             </div>
 
             <span className="small">
@@ -619,16 +674,15 @@ export default function PostPage() {
                 post.created_at
               ).toLocaleString()}
             </span>
-
           </div>
-
 
           <div
             style={{
               padding: 15,
               marginBottom: 20,
               borderRadius: 12,
-              background: "#f8f9fc"
+              background:
+                "#f8f9fc"
             }}
           >
             <div className="small">
@@ -639,7 +693,6 @@ export default function PostPage() {
               {ownerName}
             </strong>
           </div>
-
 
           <h1
             style={{
@@ -653,14 +706,15 @@ export default function PostPage() {
 
           <p
             style={{
-              whiteSpace: "pre-wrap",
+              whiteSpace:
+                "pre-wrap",
               lineHeight: 1.8,
-              color: "#475467"
+              color:
+                "#475467"
             }}
           >
             {post.body}
           </p>
-
 
           {/* ACTIVE ROOM */}
 
@@ -670,10 +724,13 @@ export default function PostPage() {
               style={{
                 marginTop: 24,
                 display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
+                justifyContent:
+                  "space-between",
+                alignItems:
+                  "center",
                 gap: 12,
-                flexWrap: "wrap"
+                flexWrap:
+                  "wrap"
               }}
             >
               <div>
@@ -697,172 +754,182 @@ export default function PostPage() {
             </div>
           )}
 
-
           {/* OWNER */}
 
-          {isOwner && !activeRoom && (
-            <section
-              style={{
-                marginTop: 28,
-                paddingTop: 22,
-                borderTop:
-                  "1px solid #eaecf0"
-              }}
-            >
+          {isOwner &&
+            !activeRoom && (
+              <section
+                style={{
+                  marginTop: 28,
+                  paddingTop: 22,
+                  borderTop:
+                    "1px solid #eaecf0"
+                }}
+              >
+                <h3>
+                  People who want to help
+                </h3>
 
-              <h3>
-                People who want to help
-              </h3>
+                {requests.length ===
+                0 ? (
+                  <p className="muted">
+                    No one has offered
+                    help yet.
+                  </p>
+                ) : (
+                  <div
+                    style={{
+                      display:
+                        "grid",
+                      gap: 10
+                    }}
+                  >
+                    {requests.map(
+                      (request) => (
+                        <div
+                          key={
+                            request.id
+                          }
+                          className="card"
+                          style={{
+                            padding: 16
+                          }}
+                        >
+                          <strong>
+                            {request
+                              .profiles?.[0]
+                              ?.display_name ||
+                              "ASKORAA User"}
+                          </strong>
 
-              {requests.length === 0 ? (
-                <p className="muted">
-                  No one has offered help yet.
-                </p>
-              ) : (
-                <div
-                  style={{
-                    display: "grid",
-                    gap: 10
-                  }}
-                >
-
-                  {requests.map((request) => (
-                    <div
-                      key={request.id}
-                      className="card"
-                      style={{
-                        padding: 16
-                      }}
-                    >
-
-                      <strong>
-                        {request.profiles
-                          ?.display_name ||
-                          "ASKORAA User"}
-                      </strong>
-
-                      <div
-                        className="small"
-                        style={{
-                          marginTop: 4
-                        }}
-                      >
-                        Wants to help solve this problem.
-                      </div>
-
-                      <div
-                        style={{
-                          marginTop: 12,
-                          display: "flex",
-                          gap: 8,
-                          flexWrap: "wrap"
-                        }}
-                      >
-
-                        {request.status ===
-                          "PENDING" && (
-                          <>
-                            <button
-                              className="btn"
-                              onClick={() =>
-                                acceptRequest(
-                                  request
-                                )
-                              }
-                              disabled={connecting}
-                            >
-                              {connecting
-                                ? "CONNECTING..."
-                                : "CONNECT NOW"}
-                            </button>
-
-                            <button
-                              className="btn secondary"
-                              onClick={() =>
-                                rejectRequest(
-                                  request
-                                )
-                              }
-                              disabled={connecting}
-                            >
-                              NOT NOW
-                            </button>
-                          </>
-                        )}
-
-                        {request.status ===
-                          "ACCEPTED" && (
-                          <span
-                            className="success"
+                          <div
+                            className="small"
+                            style={{
+                              marginTop: 4
+                            }}
                           >
-                            ✓ Connected
-                          </span>
-                        )}
+                            Wants to help
+                            solve this
+                            problem.
+                          </div>
 
-                        {request.status ===
-                          "REJECTED" && (
-                          <span className="small">
-                            Declined
-                          </span>
-                        )}
+                          <div
+                            style={{
+                              marginTop: 12,
+                              display:
+                                "flex",
+                              gap: 8,
+                              flexWrap:
+                                "wrap"
+                            }}
+                          >
+                            {request.status ===
+                              "PENDING" && (
+                              <>
+                                <button
+                                  className="btn"
+                                  onClick={() =>
+                                    acceptRequest(
+                                      request
+                                    )
+                                  }
+                                  disabled={
+                                    connecting
+                                  }
+                                >
+                                  {connecting
+                                    ? "CONNECTING..."
+                                    : "CONNECT NOW"}
+                                </button>
 
-                      </div>
-                    </div>
-                  ))}
+                                <button
+                                  className="btn secondary"
+                                  onClick={() =>
+                                    rejectRequest(
+                                      request
+                                    )
+                                  }
+                                  disabled={
+                                    connecting
+                                  }
+                                >
+                                  NOT NOW
+                                </button>
+                              </>
+                            )}
 
-                </div>
-              )}
+                            {request.status ===
+                              "ACCEPTED" && (
+                              <span className="success">
+                                ✓ Connected
+                              </span>
+                            )}
 
-            </section>
-          )}
-
+                            {request.status ===
+                              "REJECTED" && (
+                              <span className="small">
+                                Declined
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
+                )}
+              </section>
+            )}
 
           {/* SOLVER */}
 
-          {!isOwner && !activeRoom && (
-            <section
-              style={{
-                marginTop: 28,
-                paddingTop: 22,
-                borderTop:
-                  "1px solid #eaecf0"
-              }}
-            >
-
-              {myRequest?.status ===
+          {!isOwner &&
+            !activeRoom && (
+              <section
+                style={{
+                  marginTop: 28,
+                  paddingTop: 22,
+                  borderTop:
+                    "1px solid #eaecf0"
+                }}
+              >
+                {myRequest?.status ===
                 "PENDING" ? (
-                <div className="success">
-                  ✓ Your help request was sent.
-                  The problem owner has been
-                  notified.
-                </div>
-              ) : (
-                <>
-                  <h3>
-                    Can you help solve this?
-                  </h3>
+                  <div className="success">
+                    ✓ Your help request
+                    was sent. The problem
+                    owner has been notified.
+                  </div>
+                ) : (
+                  <>
+                    <h3>
+                      Can you help solve
+                      this?
+                    </h3>
 
-                  <p className="muted">
-                    If you genuinely know how to
-                    help, connect with the problem
-                    owner.
-                  </p>
+                    <p className="muted">
+                      If you genuinely
+                      know how to help,
+                      connect with the
+                      problem owner.
+                    </p>
 
-                  <button
-                    className="btn"
-                    onClick={requestHelp}
-                    disabled={connecting}
-                  >
-                    {connecting
-                      ? "SENDING..."
-                      : "I CAN HELP"}
-                  </button>
-                </>
-              )}
-
-            </section>
-          )}
-
+                    <button
+                      className="btn"
+                      onClick={
+                        requestHelp
+                      }
+                      disabled={
+                        connecting
+                      }
+                    >
+                      {connecting
+                        ? "SENDING..."
+                        : "I CAN HELP"}
+                    </button>
+                  </>
+                )}
+              </section>
+            )}
 
           {message && (
             <div
@@ -874,9 +941,7 @@ export default function PostPage() {
               {message}
             </div>
           )}
-
         </article>
-
       </div>
     </main>
   );
