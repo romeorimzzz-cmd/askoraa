@@ -21,7 +21,7 @@ type Member = {
   role: "OWNER" | "SOLVER";
   profiles?: {
     display_name: string;
-  } | null;
+  }[] | null;
 };
 
 type Message = {
@@ -120,7 +120,7 @@ export default function SolveRoomPage() {
       .eq("room_id", roomId);
 
     setMembers(
-      (memberData as Member[]) || []
+      (memberData as unknown as Member[]) || []
     );
 
     const {
@@ -254,7 +254,7 @@ export default function SolveRoomPage() {
     );
 
     return (
-      member?.profiles?.display_name ||
+      member?.profiles?.[0]?.display_name ||
       "ASKORAA User"
     );
   }
