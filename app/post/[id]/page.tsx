@@ -115,7 +115,7 @@ export default function PostPage() {
       });
 
     const allRequests =
-      (requestData as RequestRow[]) || [];
+      (requestData as unknown as RequestRow[]) || [];
 
     setRequests(allRequests);
 
