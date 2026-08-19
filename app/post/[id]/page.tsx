@@ -5,8 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "../../../lib/supabase";
 
-type Post = { id:string; author_id:string; kind:"ASK"|"HELP"; title:string; body:string; category:string; status:string; created_at:string; profiles?:{display_name:string|null}[]|null };
-type App = { id:string; applicant_id:string; status:string; created_at:string; profiles?:{display_name:string|null}[]|null };
+type Post = { id:string; author_id:string; kind:"ASK"|"HELP"; title:string; body:string; category:string; status:string; created_at:string; profiles?:{display_name:string|null;avatar_url?:string|null}[]|null };
+type App = { id:string; applicant_id:string; status:string; created_at:string; profiles?:{display_name:string|null;avatar_url?:string|null}[]|null };
 
 type Room = { id:string; post_id:string; problem_owner_id:string; solver_id:string; status:string };
 
@@ -23,11 +23,11 @@ export default function PostDetail(){
   async function load(){
     const {data:{user:currentUser}}=await supabase.auth.getUser();
     setUser(currentUser);
-    const {data,error}=await supabase.from("posts").select("id,author_id,kind,title,body,category,status,created_at,profiles:author_id(display_name)").eq("id",id).single();
+    const {data,error}=await supabase.from("posts").select("id,author_id,kind,title,body,category,status,created_at,profiles:author_id(display_name,avatar_url)").eq("id",id).single();
     if(error||!data){setMsg(error?.message||"Problem not found.");return;}
     setPost(data as unknown as Post);
 
-    const {data:a}=await supabase.from("post_applications").select("id,applicant_id,status,created_at,profiles:applicant_id(display_name)").eq("post_id",id).order("created_at",{ascending:false});
+    const {data:a}=await supabase.from("post_applications").select("id,applicant_id,status,created_at,profiles:applicant_id(display_name,avatar_url)").eq("post_id",id).order("created_at",{ascending:false});
     setApps((a||[]) as unknown as App[]);
 
     const {data:r}=await supabase.from("rooms").select("id,post_id,problem_owner_id,solver_id,status").eq("post_id",id).eq("status","ACTIVE").maybeSingle();
@@ -62,7 +62,7 @@ export default function PostDetail(){
       <div className="problem-top"><span className="badge">{post.category} • {post.kind}</span><span className="small muted">{new Date(post.created_at).toLocaleString()}</span></div>
       <h1>{post.title}</h1>
       <p className="detail-body">{post.body}</p>
-      <div className="owner-strip"><span className="avatar">{(post.profiles?.[0]?.display_name||"A").charAt(0).toUpperCase()}</span><div><span className="small muted">PROBLEM OWNER</span><strong>{post.profiles?.[0]?.display_name||"ASKORAA User"}</strong></div></div>
+      <div className="owner-strip"><span className="avatar hex-avatar">{post.profiles?.[0]?.avatar_url?<img src={post.profiles[0].avatar_url} alt=""/>:(post.profiles?.[0]?.display_name||"A").charAt(0).toUpperCase()}</span><div><span className="small muted">PROBLEM OWNER</span><strong>{post.profiles?.[0]?.display_name||"ASKORAA User"}</strong></div></div>
 
       {room && <div className="success room-callout"><div><strong>Solve Room is active.</strong><p>Both participants can continue the private conversation there.</p></div><Link className="btn" href={`/room/${room.id}`}>Open Solve Room</Link></div>}
 

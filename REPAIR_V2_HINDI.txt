@@ -1,0 +1,27 @@
+ASKORAA V1 - Repair V2
+
+1) Supabase SQL Editor me ye file run karein:
+   supabase/migrations/20260818_askoraa_repair_v2.sql
+
+2) Is migration se:
+   - reports.target_id fix hota hai + PostgREST schema reload
+   - notifications ka connection_id FK post_applications par repair hota hai
+   - purane problem outcomes se archive_records backfill hote hain
+   - profile avatar_url add hota hai
+   - purane ASKORAA User profiles ko signup metadata se real display name milta hai
+
+3) SQL run hone ke baad project files replace karke:
+   git add .
+   git commit -m "Repair reports notifications archive and avatars"
+   git push
+
+4) Netlify deploy hone ke baad:
+   - Login/signup test
+   - I CAN HELP test
+   - Notification -> Accept & Solve
+   - Room -> Chat
+   - YES -> Rating -> Archive
+   - Report
+   - Profile picture
+
+Important: UI/design ko is repair me intentionally same rakha gaya hai, sirf requested fixes add kiye gaye hain.
